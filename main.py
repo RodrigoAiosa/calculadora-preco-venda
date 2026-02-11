@@ -8,31 +8,105 @@ st.set_page_config(
 
 st.title("💰 Calculadora de Preço de Venda")
 
-st.markdown("Calcule o preço ideal para seu produto ou serviço considerando custos, impostos e margem de lucro.")
+st.markdown(
+    "Calcule o preço ideal para seu produto ou serviço considerando custos, impostos e margem de lucro."
+)
+
+# ---------------------------------------------------
+# SIDEBAR - CENÁRIOS
+# ---------------------------------------------------
+
+st.sidebar.title("Cenários de Exemplo")
+
+cenarios_exemplo = {
+    "Nenhum": {
+        "custo": 0.0,
+        "frete": 0.0,
+        "margem": 0.0,
+        "impostos": 0.0,
+        "comissoes": 0.0,
+        "taxas": 0.0,
+    },
+    "Revenda de Produto": {
+        "custo": 45.0,
+        "frete": 5.0,
+        "margem": 30.0,
+        "impostos": 12.0,
+        "comissoes": 5.0,
+        "taxas": 3.0,
+    },
+    "Serviço Freelancer": {
+        "custo": 300.0,
+        "frete": 0.0,
+        "margem": 40.0,
+        "impostos": 6.0,
+        "comissoes": 0.0,
+        "taxas": 4.0,
+    },
+    "Pequeno Negócio": {
+        "custo": 8.0,
+        "frete": 2.0,
+        "margem": 35.0,
+        "impostos": 10.0,
+        "comissoes": 8.0,
+        "taxas": 2.0,
+    },
+    "Produção Artesanal": {
+        "custo": 12.0,
+        "frete": 3.0,
+        "margem": 50.0,
+        "impostos": 8.0,
+        "comissoes": 0.0,
+        "taxas": 3.0,
+    },
+}
+
+cenario_selecionado = st.sidebar.selectbox(
+    "Escolha um cenário:",
+    list(cenarios_exemplo.keys())
+)
+
+dados = cenarios_exemplo[cenario_selecionado]
 
 st.divider()
 
-# -----------------------------
+# ---------------------------------------------------
 # ENTRADAS
-# -----------------------------
+# ---------------------------------------------------
 
 st.subheader("📥 Dados de Entrada")
 
-custo_produto = st.number_input("Custo do Produto (R$)", min_value=0.0, step=0.01)
-frete = st.number_input("Frete / Custos Adicionais (R$)", min_value=0.0, step=0.01)
+custo_produto = st.number_input(
+    "Custo do Produto (R$)", value=dados["custo"], min_value=0.0, step=0.01
+)
+
+frete = st.number_input(
+    "Frete / Custos Adicionais (R$)", value=dados["frete"], min_value=0.0, step=0.01
+)
 
 st.markdown("### Percentuais (%)")
 
-margem = st.number_input("Margem de Lucro (%)", min_value=0.0, max_value=100.0, step=0.1)
-impostos = st.number_input("Impostos (%)", min_value=0.0, max_value=100.0, step=0.1)
-comissoes = st.number_input("Comissões (%)", min_value=0.0, max_value=100.0, step=0.1)
-taxas = st.number_input("Taxas de Pagamento (%)", min_value=0.0, max_value=100.0, step=0.1)
+margem = st.number_input(
+    "Margem de Lucro (%)", value=dados["margem"], min_value=0.0, max_value=100.0
+)
+
+impostos = st.number_input(
+    "Impostos (%)", value=dados["impostos"], min_value=0.0, max_value=100.0
+)
+
+comissoes = st.number_input(
+    "Comissões (%)", value=dados["comissoes"], min_value=0.0, max_value=100.0
+)
+
+taxas = st.number_input(
+    "Taxas de Pagamento (%)", value=dados["taxas"], min_value=0.0, max_value=100.0
+)
 
 st.divider()
 
-# -----------------------------
+# ---------------------------------------------------
 # CÁLCULO
-# -----------------------------
+# ---------------------------------------------------
 
 if st.button("Calcular Preço de Venda"):
 
@@ -58,28 +132,7 @@ if st.button("Calcular Preço de Venda"):
 
         st.markdown("### 📋 Detalhamento")
 
-        st.write(f"• Custo Total: R$ {custo_total:,.2f}")
-        st.write(f"• Impostos: R$ {valor_impostos:,.2f}")
-        st.write(f"• Comissões: R$ {valor_comissao:,.2f}")
-        st.write(f"• Taxas: R$ {valor_taxas:,.2f}")
-
-        st.divider()
-
-        # -----------------------------
-        # SIMULAÇÃO DE CENÁRIOS
-        # -----------------------------
-
-        st.subheader("📈 Simulação de Cenários")
-
-        cenarios = []
-
-        for margem_simulada in [10, 20, 30, 40, 50]:
-            percentual_simulado = (margem_simulada + impostos + comissoes + taxas) / 100
-            if percentual_simulado < 1:
-                preco_simulado = custo_total / (1 - percentual_simulado)
-                cenarios.append({
-                    "Margem (%)": margem_simulada,
-                    "Preço de Venda (R$)": round(preco_simulado, 2)
-                })
-
-        st.table(cenarios)
+        st.write(f"Custo Total: R$ {custo_total:,.2f}")
+        st.write(f"Impostos: R$ {valor_impostos:,.2f}")
+        st.write(f"Comissões: R$ {valor_comissao:,.2f}")
+        st.write(f"Taxas: R$ {valor_taxas:,.2f}")
