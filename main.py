@@ -3,111 +3,103 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from io import BytesIO
 
-st.set_page_config(
-    page_title="Precificador",
-    page_icon="💰",
-    layout="wide"
-)
+st.set_page_config(page_title="Precificador MEI", page_icon="💼", layout="wide")
 
-st.title("💰 Precificador de Produtos e Serviços")
+st.title("💼 Precificador Profissional para MEI")
+st.markdown("Ferramenta estratégica para definição de preço sustentável.")
 
 # -----------------------------
 # SIDEBAR
 # -----------------------------
-st.sidebar.title("Cenários")
+st.sidebar.header("Configurações MEI")
 
-cenarios_exemplo = {
-    "Manual": (0, 0, 0, 0, 0, 0),
-    "Revenda": (45, 5, 30, 12, 5, 3),
-    "Freelancer": (300, 0, 40, 6, 0, 4),
-    "Pequeno Negócio": (8, 2, 35, 10, 8, 2),
-}
-
-opcao = st.sidebar.selectbox("Escolha um cenário", list(cenarios_exemplo.keys()))
-
-custo, frete, margem, impostos, comissoes, taxas = cenarios_exemplo[opcao]
+simples = st.sidebar.number_input("Imposto Simples Nacional (%)", value=6.0)
+meta_faturamento = st.sidebar.number_input("Meta de Faturamento Mensal (R$)", value=10000.0)
 
 # -----------------------------
-# INPUTS
+# INPUTS PRINCIPAIS
 # -----------------------------
+st.subheader("Custos Variáveis por Unidade")
+
 col1, col2 = st.columns(2)
 
 with col1:
-    custo = st.number_input("Custo", value=float(custo))
-    frete = st.number_input("Custos adicionais", value=float(frete))
-    margem = st.number_input("Margem (%)", value=float(margem))
+    custo_produto = st.number_input("Custo do Produto/Serviço", value=0.0)
+    frete = st.number_input("Frete / Custos adicionais", value=0.0)
+    comissoes = st.number_input("Comissões (%)", value=0.0)
 
 with col2:
-    impostos = st.number_input("Impostos (%)", value=float(impostos))
-    comissoes = st.number_input("Comissões (%)", value=float(comissoes))
-    taxas = st.number_input("Taxas (%)", value=float(taxas))
-
-custos_fixos = st.number_input("Custos Fixos Mensais", value=1000.0)
+    taxas = st.number_input("Taxas de Pagamento (%)", value=0.0)
+    margem = st.number_input("Margem de Lucro Desejada (%)", value=30.0)
+    custos_fixos = st.number_input("Custos Fixos Mensais (R$)", value=2000.0)
 
 st.divider()
 
 # -----------------------------
 # CÁLCULO
 # -----------------------------
-if st.button("Calcular"):
+if st.button("Calcular Precificação"):
 
-    custo_total = custo + frete
-    perc_total = (margem + impostos + comissoes + taxas) / 100
+    custo_total = custo_produto + frete
+    impostos_total = simples + comissoes + taxas + margem
+    percentual_total = impostos_total / 100
 
-    if perc_total >= 1:
-        st.error("Percentuais inválidos")
+    if percentual_total >= 1:
+        st.error("Percentual total inválido.")
     else:
-        preco = custo_total / (1 - perc_total)
+        preco = custo_total / (1 - percentual_total)
 
-        impostos_v = preco * (impostos / 100)
+        imposto_v = preco * (simples / 100)
         comissao_v = preco * (comissoes / 100)
-        taxas_v = preco * (taxas / 100)
+        taxa_v = preco * (taxas / 100)
         lucro_v = preco * (margem / 100)
 
-        # MARKUP
         markup = preco / custo_total if custo_total > 0 else 0
 
-        # PONTO DE EQUILÍBRIO
-        margem_contribuicao = preco - (custo_total + impostos_v + comissao_v + taxas_v)
+        margem_contribuicao = preco - (custo_total + imposto_v + comissao_v + taxa_v)
         ponto_equilibrio = custos_fixos / margem_contribuicao if margem_contribuicao > 0 else 0
 
+        preco_minimo = custo_total / (1 - ((simples + comissoes + taxas) / 100))
+
+        unidades_meta = meta_faturamento / preco if preco > 0 else 0
+
+        # -----------------------------
         # KPIs
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Preço de Venda", f"R$ {preco:,.2f}")
-        c2.metric("Lucro", f"R$ {lucro_v:,.2f}")
+        # -----------------------------
+        st.subheader("Indicadores Estratégicos")
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Preço Ideal", f"R$ {preco:,.2f}")
+        c2.metric("Lucro por Unidade", f"R$ {lucro_v:,.2f}")
         c3.metric("Markup", f"{markup:.2f}x")
+        c4.metric("Preço Mínimo Sustentável", f"R$ {preco_minimo:,.2f}")
 
         st.metric("Ponto de Equilíbrio (unidades)", f"{ponto_equilibrio:.1f}")
+        st.metric("Unidades para atingir meta", f"{unidades_meta:.0f}")
 
         st.divider()
 
         # -----------------------------
         # GRÁFICO COMPOSIÇÃO
         # -----------------------------
-        st.subheader("Composição do preço")
+        st.subheader("Composição do Preço")
 
         componentes = {
             "Custo": custo_total,
-            "Impostos": impostos_v,
+            "Imposto MEI": imposto_v,
             "Comissões": comissao_v,
-            "Taxas": taxas_v,
+            "Taxas": taxa_v,
             "Lucro": lucro_v,
         }
 
         componentes_filtrados = {k: v for k, v in componentes.items() if v > 0}
 
-        labels = list(componentes_filtrados.keys())
-        valores = list(componentes_filtrados.values())
-
-        cores = ["#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F"]
-
         fig1, ax1 = plt.subplots()
         ax1.pie(
-            valores,
-            labels=labels,
+            list(componentes_filtrados.values()),
+            labels=list(componentes_filtrados.keys()),
             autopct="%1.1f%%",
             startangle=90,
-            colors=cores[:len(valores)],
             wedgeprops={"linewidth": 1, "edgecolor": "white"},
         )
         ax1.axis("equal")
@@ -121,51 +113,33 @@ if st.button("Calcular"):
         st.subheader("Lucro vs Custo")
 
         fig2, ax2 = plt.subplots()
-        categorias = ["Custo Total", "Lucro"]
-        valores_barra = [custo_total, lucro_v]
-
-        ax2.bar(categorias, valores_barra)
+        ax2.bar(["Custo Total", "Lucro"], [custo_total, lucro_v])
         ax2.set_ylabel("Valor (R$)")
         st.pyplot(fig2)
 
         st.divider()
 
         # -----------------------------
-        # SIMULAÇÃO
-        # -----------------------------
-        simulacao = []
-        for m in [10, 20, 30, 40, 50]:
-            p = (m + impostos + comissoes + taxas) / 100
-            if p < 1:
-                preco_sim = custo_total / (1 - p)
-                simulacao.append([m, round(preco_sim, 2)])
-
-        df = pd.DataFrame(simulacao, columns=["Margem %", "Preço"])
-        st.dataframe(df)
-
-        # -----------------------------
-        # EXPORTAR XLSX
+        # RELATÓRIO XLSX
         # -----------------------------
         relatorio = pd.DataFrame({
-            "Custo Produto": [custo],
+            "Custo Produto": [custo_produto],
             "Frete": [frete],
             "Custo Total": [custo_total],
-            "Preço Venda": [preco],
+            "Preço Ideal": [preco],
+            "Preço Mínimo": [preco_minimo],
             "Lucro": [lucro_v],
             "Markup": [markup],
-            "Impostos": [impostos_v],
-            "Comissões": [comissao_v],
-            "Taxas": [taxas_v],
-            "Ponto Equilíbrio": [ponto_equilibrio]
+            "Ponto Equilíbrio": [ponto_equilibrio],
+            "Unidades Meta": [unidades_meta],
         })
 
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             relatorio.to_excel(writer, index=False, sheet_name="Relatorio")
-            df.to_excel(writer, index=False, sheet_name="Simulacao")
 
         st.download_button(
-            "Baixar relatório XLSX",
+            "📥 Baixar Relatório Profissional (XLSX)",
             output.getvalue(),
-            "relatorio_precificacao.xlsx"
+            "relatorio_precificacao_mei.xlsx"
         )
