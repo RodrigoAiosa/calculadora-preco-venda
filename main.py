@@ -1,34 +1,13 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+from io import BytesIO
 
 st.set_page_config(
     page_title="Precificador",
     page_icon="💰",
     layout="wide"
 )
-
-# -----------------------------
-# ESTILO (cards simples)
-# -----------------------------
-st.markdown("""
-<style>
-.card {
-    padding: 20px;
-    border-radius: 12px;
-    background-color: #f7f7f7;
-    margin-bottom: 10px;
-    border: 1px solid #e6e6e6;
-}
-.metric-card {
-    padding: 20px;
-    border-radius: 12px;
-    background-color: #ffffff;
-    border: 1px solid #e6e6e6;
-    text-align: center;
-}
-</style>
-""", unsafe_allow_html=True)
 
 st.title("💰 Precificador de Produtos e Serviços")
 
@@ -70,18 +49,16 @@ custo, frete, margem, impostos, comissoes, taxas = carregar(opcao)
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     custo = st.number_input("Custo", value=float(custo))
     frete = st.number_input("Custos adicionais", value=float(frete))
     margem = st.number_input("Margem (%)", value=float(margem))
-    st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     impostos = st.number_input("Impostos (%)", value=float(impostos))
     comissoes = st.number_input("Comissões (%)", value=float(comissoes))
     taxas = st.number_input("Taxas (%)", value=float(taxas))
-    st.markdown('</div>', unsafe_allow_html=True)
+
+st.divider()
 
 # -----------------------------
 # CÁLCULO
@@ -102,27 +79,35 @@ if st.button("Calcular"):
         lucro_v = preco * (margem / 100)
 
         # -----------------------------
-        # CARDS RESULTADO
+        # MARKUP
         # -----------------------------
-        c1, c2 = st.columns(2)
+        markup = preco / custo_total if custo_total > 0 else 0
 
-        with c1:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Preço de Venda", f"R$ {preco:,.2f}")
-            st.markdown('</div>', unsafe_allow_html=True)
+        # -----------------------------
+        # PONTO DE EQUILÍBRIO
+        # -----------------------------
+        custos_fixos = st.number_input("Custos Fixos Mensais", value=1000.0)
+        margem_contribuicao = preco - (custo_total + impostos_v + comissao_v + taxas_v)
 
-        with c2:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Lucro", f"R$ {lucro_v:,.2f}")
-            st.markdown('</div>', unsafe_allow_html=True)
+        if margem_contribuicao > 0:
+            ponto_equilibrio = custos_fixos / margem_contribuicao
+        else:
+            ponto_equilibrio = 0
+
+        st.subheader("Resultados")
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Preço de Venda", f"R$ {preco:,.2f}")
+        c2.metric("Lucro", f"R$ {lucro_v:,.2f}")
+        c3.metric("Markup", f"{markup:.2f}x")
+
+        st.metric("Ponto de Equilíbrio (unidades)", f"{ponto_equilibrio:.1f}")
 
         st.divider()
 
         # -----------------------------
-        # GRÁFICO DE COMPOSIÇÃO
+        # GRÁFICO
         # -----------------------------
-        st.subheader("Composição do preço")
-
         labels = ["Custo", "Impostos", "Comissões", "Taxas", "Lucro"]
         valores = [custo_total, impostos_v, comissao_v, taxas_v, lucro_v]
 
@@ -130,13 +115,9 @@ if st.button("Calcular"):
         ax.pie(valores, labels=labels, autopct='%1.1f%%')
         st.pyplot(fig)
 
-        st.divider()
-
         # -----------------------------
         # SIMULAÇÃO
         # -----------------------------
-        st.subheader("Simulação de Margens")
-
         simulacao = []
         for m in [10, 20, 30, 40, 50]:
             p = (m + impostos + comissoes + taxas) / 100
@@ -145,14 +126,34 @@ if st.button("Calcular"):
                 simulacao.append([m, round(preco_sim, 2)])
 
         df = pd.DataFrame(simulacao, columns=["Margem %", "Preço"])
-
         st.dataframe(df)
 
         # -----------------------------
-        # EXPORTAR CSV
+        # EXPORTAR XLSX
         # -----------------------------
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("Exportar simulação CSV", csv, "simulacao.csv")
+        relatorio = pd.DataFrame({
+            "Custo Produto": [custo],
+            "Frete": [frete],
+            "Custo Total": [custo_total],
+            "Preço Venda": [preco],
+            "Lucro": [lucro_v],
+            "Markup": [markup],
+            "Impostos": [impostos_v],
+            "Comissões": [comissao_v],
+            "Taxas": [taxas_v],
+            "Ponto Equilíbrio": [ponto_equilibrio]
+        })
+
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            relatorio.to_excel(writer, index=False, sheet_name="Relatorio")
+            df.to_excel(writer, index=False, sheet_name="Simulacao")
+
+        st.download_button(
+            "Baixar relatório XLSX",
+            output.getvalue(),
+            "relatorio_precificacao.xlsx"
+        )
 
 # -----------------------------
 # SALVAR CENÁRIO
