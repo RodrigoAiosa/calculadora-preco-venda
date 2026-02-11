@@ -12,36 +12,20 @@ st.set_page_config(
 st.title("💰 Precificador de Produtos e Serviços")
 
 # -----------------------------
-# SESSION STATE
-# -----------------------------
-if "cenarios_salvos" not in st.session_state:
-    st.session_state.cenarios_salvos = {}
-
-# -----------------------------
 # SIDEBAR
 # -----------------------------
 st.sidebar.title("Cenários")
 
 cenarios_exemplo = {
-    "Manual": None,
+    "Manual": (0, 0, 0, 0, 0, 0),
     "Revenda": (45, 5, 30, 12, 5, 3),
     "Freelancer": (300, 0, 40, 6, 0, 4),
     "Pequeno Negócio": (8, 2, 35, 10, 8, 2),
 }
 
-opcao = st.sidebar.selectbox(
-    "Escolha um cenário",
-    list(cenarios_exemplo.keys()) + list(st.session_state.cenarios_salvos.keys())
-)
+opcao = st.sidebar.selectbox("Escolha um cenário", list(cenarios_exemplo.keys()))
 
-def carregar(op):
-    if op in cenarios_exemplo and cenarios_exemplo[op]:
-        return cenarios_exemplo[op]
-    if op in st.session_state.cenarios_salvos:
-        return st.session_state.cenarios_salvos[op]
-    return (0, 0, 0, 0, 0, 0)
-
-custo, frete, margem, impostos, comissoes, taxas = carregar(opcao)
+custo, frete, margem, impostos, comissoes, taxas = cenarios_exemplo[opcao]
 
 # -----------------------------
 # INPUTS
@@ -57,6 +41,8 @@ with col2:
     impostos = st.number_input("Impostos (%)", value=float(impostos))
     comissoes = st.number_input("Comissões (%)", value=float(comissoes))
     taxas = st.number_input("Taxas (%)", value=float(taxas))
+
+custos_fixos = st.number_input("Custos Fixos Mensais", value=1000.0)
 
 st.divider()
 
@@ -78,24 +64,14 @@ if st.button("Calcular"):
         taxas_v = preco * (taxas / 100)
         lucro_v = preco * (margem / 100)
 
-        # -----------------------------
         # MARKUP
-        # -----------------------------
         markup = preco / custo_total if custo_total > 0 else 0
 
-        # -----------------------------
         # PONTO DE EQUILÍBRIO
-        # -----------------------------
-        custos_fixos = st.number_input("Custos Fixos Mensais", value=1000.0)
         margem_contribuicao = preco - (custo_total + impostos_v + comissao_v + taxas_v)
+        ponto_equilibrio = custos_fixos / margem_contribuicao if margem_contribuicao > 0 else 0
 
-        if margem_contribuicao > 0:
-            ponto_equilibrio = custos_fixos / margem_contribuicao
-        else:
-            ponto_equilibrio = 0
-
-        st.subheader("Resultados")
-
+        # KPIs
         c1, c2, c3 = st.columns(3)
         c1.metric("Preço de Venda", f"R$ {preco:,.2f}")
         c2.metric("Lucro", f"R$ {lucro_v:,.2f}")
@@ -106,14 +82,53 @@ if st.button("Calcular"):
         st.divider()
 
         # -----------------------------
-        # GRÁFICO
+        # GRÁFICO COMPOSIÇÃO
         # -----------------------------
-        labels = ["Custo", "Impostos", "Comissões", "Taxas", "Lucro"]
-        valores = [custo_total, impostos_v, comissao_v, taxas_v, lucro_v]
+        st.subheader("Composição do preço")
 
-        fig, ax = plt.subplots()
-        ax.pie(valores, labels=labels, autopct='%1.1f%%')
-        st.pyplot(fig)
+        componentes = {
+            "Custo": custo_total,
+            "Impostos": impostos_v,
+            "Comissões": comissao_v,
+            "Taxas": taxas_v,
+            "Lucro": lucro_v,
+        }
+
+        componentes_filtrados = {k: v for k, v in componentes.items() if v > 0}
+
+        labels = list(componentes_filtrados.keys())
+        valores = list(componentes_filtrados.values())
+
+        cores = ["#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F"]
+
+        fig1, ax1 = plt.subplots()
+        ax1.pie(
+            valores,
+            labels=labels,
+            autopct="%1.1f%%",
+            startangle=90,
+            colors=cores[:len(valores)],
+            wedgeprops={"linewidth": 1, "edgecolor": "white"},
+        )
+        ax1.axis("equal")
+        st.pyplot(fig1)
+
+        st.divider()
+
+        # -----------------------------
+        # GRÁFICO LUCRO VS CUSTO
+        # -----------------------------
+        st.subheader("Lucro vs Custo")
+
+        fig2, ax2 = plt.subplots()
+        categorias = ["Custo Total", "Lucro"]
+        valores_barra = [custo_total, lucro_v]
+
+        ax2.bar(categorias, valores_barra)
+        ax2.set_ylabel("Valor (R$)")
+        st.pyplot(fig2)
+
+        st.divider()
 
         # -----------------------------
         # SIMULAÇÃO
@@ -154,22 +169,3 @@ if st.button("Calcular"):
             output.getvalue(),
             "relatorio_precificacao.xlsx"
         )
-
-# -----------------------------
-# SALVAR CENÁRIO
-# -----------------------------
-st.sidebar.divider()
-st.sidebar.subheader("Salvar cenário")
-
-nome = st.sidebar.text_input("Nome do cenário")
-
-if st.sidebar.button("Salvar"):
-    st.session_state.cenarios_salvos[nome] = (
-        custo,
-        frete,
-        margem,
-        impostos,
-        comissoes,
-        taxas
-    )
-    st.sidebar.success("Cenário salvo!")
